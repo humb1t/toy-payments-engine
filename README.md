@@ -2,6 +2,14 @@
 
 A simple payments engine implementation that processes transactions from CSV files and outputs account balances.
 
+## TL;DR
+
+```bash
+cargo run -- sample.csv > accounts.csv
+cargo test
+cargo test -- --ignored
+```
+
 ## Features
 
 - Processes deposit, withdrawal, dispute, resolve, and chargeback transactions
@@ -18,7 +26,7 @@ cargo build
 ## Running
 
 ```bash
-cargo run -- transactions.csv > accounts.csv
+cargo run -- sample.csv > accounts.csv
 ```
 
 ## Input Format
@@ -62,13 +70,13 @@ The output will be written to stdout in CSV format with columns:
 ## Testing
 
 The program can be tested with:
+
 ```bash
-cargo test  # Run tests if they exist
+cargo test
 ```
 
 Or by using sample CSV files with the command:
 
-
 ```bash
-cargo run -- comprehensive_test.csv | head -n 10
+cargo run -- sample.csv | head -n 10
 ```
