@@ -10,7 +10,7 @@ use toy_payments_engine::prelude::*;
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 2 {
+    if args.len() < 2 {
         return Err(Error::Arguments);
     }
     let input_path = &args[1];

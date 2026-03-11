@@ -3,6 +3,56 @@
 use std::process::Command;
 
 #[test]
+fn test_wrong_client_format() {
+    let input_file = "./tests/resourses/test_wrong_client_format.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
+fn test_wrong_transaction_format() {
+    let input_file = "./tests/resourses/test_wrong_transaction_format.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
+fn test_wrong_amount_format() {
+    let input_file = "./tests/resourses/test_wrong_amount_format.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
+fn test_negative_amount() {
+    let input_file = "./tests/resourses/test_negative_amount.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
+fn test_expected_piped_run() {
+    let input_file = "sample.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file, ">", "accounts.csv"])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+}
+
+#[test]
 fn test_basic_deposit_withdrawal() {
     let input_file = "./tests/resourses/test_basic.csv";
     let output = Command::new("cargo")
@@ -24,6 +74,58 @@ fn test_basic_deposit_withdrawal() {
 }
 
 #[test]
+fn test_deposit_with_multiple_withdrawal() {
+    let input_file = "./tests/resourses/test_multiple_withdrawal.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields.len(), 5);
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "0.0");
+    assert_eq!(fields[2], "0");
+    assert_eq!(fields[3], "0");
+    assert_eq!(fields[4], "false");
+}
+
+#[test]
+fn test_deposit_with_same_transaction_withdrawal() {
+    let input_file = "./tests/resourses/test_same_transaction_withdrawal.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields.len(), 5);
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "5.0");
+    assert_eq!(fields[2], "0");
+    assert_eq!(fields[3], "5.0");
+    assert_eq!(fields[4], "false");
+}
+
+#[test]
+fn test_insufficient_funds_deposit_withdrawal() {
+    let input_file = "./tests/resourses/test_insufficient_funds.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
 fn test_dispute_resolve_workflow() {
     let input_file = "./tests/resourses/test_dispute_resolve.csv";
     let output = Command::new("cargo")
@@ -41,6 +143,49 @@ fn test_dispute_resolve_workflow() {
     assert_eq!(fields[2], "0.0");
     assert_eq!(fields[3], "10.0");
     assert_eq!(fields[4], "false");
+}
+
+#[test]
+fn chargeback_on_a_non_existent_disputed_transaction() {
+    let input_file = "./tests/resourses/test_chargeback_on_a_non_existent_disputed_transaction.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    println!("{data_line}");
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1"); // client
+    assert_eq!(fields[1], "0.0"); // available
+    assert_eq!(fields[2], "10.0"); // held
+    assert_eq!(fields[3], "10.0"); // total 
+    assert_eq!(fields[4], "false"); // locked
+}
+
+#[test]
+fn chargeback_on_a_existent_but_not_disputed_transaction() {
+    let input_file =
+        "./tests/resourses/test_chargeback_on_a_existent_but_not_disputed_transaction.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    println!("{data_line}");
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1"); // client
+    assert_eq!(fields[1], "5.0"); // available
+    assert_eq!(fields[2], "0"); // held
+    assert_eq!(fields[3], "5.0"); // total 
+    assert_eq!(fields[4], "false"); // locked
 }
 
 #[test]

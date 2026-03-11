@@ -14,6 +14,10 @@ mod db;
 /// choose strategy based on transaction type.
 /// All in one function to do not spread small main business logic into separate
 /// spaces, as we assume no more transaction types will come in future.
+///
+/// Some assumptions that were made:
+/// - we fail in cases of big issues, like negative amounts or debit/credit conflicts;
+/// - we less agressive against smaller issues, but my understanding may differ from real project requirements, for example I decided not to fail in case of transaction duplicate and just skip action if deposit or withdraw transaction with this ID already took place.
 pub fn process_transaction(
     transaction: &Transaction,
     accounts: &mut HashMap<ClientId, Account>,
@@ -28,39 +32,51 @@ pub fn process_transaction(
         <engine::DisputedTransactionDetails as redb_model::ModelExt>::RedbValue,
     >,
 ) -> Result<()> {
+    if transaction
+        .amount
+        .is_some_and(|decimal| decimal.is_sign_negative())
+    {
+        return Err(Error::Input);
+    }
     match transaction.transaction_type {
         TransactionType::Deposit => {
-            let account = accounts
-                .entry(transaction.client)
-                .or_insert_with(|| Account::new(transaction.client));
-            if let Some(amount) = transaction.amount {
-                account.update_available(amount)?;
-                db::store_transaction(transaction, all_transactions)?;
+            if db::load_transaction(transaction.tx, all_transactions)?.is_none() {
+                let account = accounts
+                    .entry(transaction.client)
+                    .or_insert_with(|| Account::new(transaction.client));
+                if let Some(amount) = transaction.amount {
+                    account.update_available(amount)?;
+                    db::store_transaction(transaction, all_transactions)?;
+                }
             }
         }
         TransactionType::Withdrawal => {
-            let account = accounts
-                .entry(transaction.client)
-                .or_insert_with(|| Account::new(transaction.client));
-            if let Some(amount) = transaction.amount {
-                if account.locked || account.available < amount {
-                    return Ok(());
+            if db::load_transaction(transaction.tx, all_transactions)?.is_none() {
+                let account = accounts
+                    .entry(transaction.client)
+                    .or_insert_with(|| Account::new(transaction.client));
+                if let Some(amount) = transaction.amount {
+                    if account.locked || account.available < amount {
+                        return Err(Error::Input);
+                    }
+                    account.update_available(-amount)?;
+                    db::store_transaction(transaction, all_transactions)?;
                 }
-                account.update_available(-amount)?;
-                db::store_transaction(transaction, all_transactions)?;
             }
         }
         TransactionType::Dispute => {
-            if let Some(tx_details) = db::load_transaction(transaction.tx, all_transactions)?
+            if db::load_disputed_transaction(transaction.tx, disputed_transactions)?.is_none()
+                && let Some(tx_details) = db::load_transaction(transaction.tx, all_transactions)?
                 && let Some(account) = accounts.get_mut(&tx_details.client)
                 && !account.locked
             {
                 let dispute_amount = tx_details.amount;
-                if account.available >= dispute_amount {
-                    account.update_available(-dispute_amount)?;
-                    account.update_held(dispute_amount)?;
-                    db::store_disputed_transaction(disputed_transactions, tx_details)?;
+                if account.available < dispute_amount {
+                    return Err(Error::State);
                 }
+                account.update_available(-dispute_amount)?;
+                account.update_held(dispute_amount)?;
+                db::store_disputed_transaction(disputed_transactions, tx_details)?;
             }
         }
         TransactionType::Resolve => {
@@ -68,8 +84,10 @@ pub fn process_transaction(
                 db::load_disputed_transaction(transaction.tx, disputed_transactions)?
                 && let Some(account) = accounts.get_mut(&tx_details.client)
                 && !account.locked
-                && account.held >= tx_details.amount
             {
+                if account.held < tx_details.amount {
+                    return Err(Error::State);
+                }
                 account.update_held(-tx_details.amount)?;
                 account.update_available(tx_details.amount)?;
                 db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
@@ -81,9 +99,10 @@ pub fn process_transaction(
                 && let Some(account) = accounts.get_mut(&tx_details.client)
                 && !account.locked
             {
-                let chargeback_amount = tx_details.amount;
-                account.held -= chargeback_amount;
-                account.total -= chargeback_amount;
+                if account.held < tx_details.amount {
+                    return Err(Error::State);
+                }
+                account.update_held(-tx_details.amount)?;
                 account.locked = true;
                 db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
             }
@@ -224,5 +243,15 @@ mod tests {
     #[test]
     fn to_string_and_back() {
         Decimal::from_str(&Decimal::new(1000000000000000001, 4).to_string()).unwrap();
+    }
+
+    #[test]
+    fn decimals_go_below_zero() {
+        assert_eq!(
+            Decimal::new(-5, 1),
+            Decimal::new(10, 1)
+                .checked_add(-Decimal::new(15, 1))
+                .unwrap()
+        );
     }
 }
