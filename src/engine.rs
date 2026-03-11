@@ -1,10 +1,9 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use redb::Table;
 use redb_model::Model;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::{errors::ProgrammerError, *};
 
@@ -38,7 +37,7 @@ pub fn process_transaction(
                 account.update_available(amount)?;
                 db::store_transaction(transaction, all_transactions)?;
             }
-        },
+        }
         TransactionType::Withdrawal => {
             let account = accounts
                 .entry(transaction.client)
@@ -50,7 +49,7 @@ pub fn process_transaction(
                 account.update_available(-amount)?;
                 db::store_transaction(transaction, all_transactions)?;
             }
-        },
+        }
         TransactionType::Dispute => {
             if let Some(tx_details) = db::load_transaction(transaction.tx, all_transactions)?
                 && let Some(account) = accounts.get_mut(&tx_details.client)
@@ -63,9 +62,10 @@ pub fn process_transaction(
                     db::store_disputed_transaction(disputed_transactions, tx_details)?;
                 }
             }
-        },
+        }
         TransactionType::Resolve => {
-            if let Some(tx_details) = db::load_disputed_transaction(transaction.tx, disputed_transactions)?
+            if let Some(tx_details) =
+                db::load_disputed_transaction(transaction.tx, disputed_transactions)?
                 && let Some(account) = accounts.get_mut(&tx_details.client)
                 && !account.locked
                 && account.held >= tx_details.amount
@@ -74,9 +74,10 @@ pub fn process_transaction(
                 account.update_available(tx_details.amount)?;
                 db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
             }
-        },
+        }
         TransactionType::Chargeback => {
-            if let Some(tx_details) = db::load_disputed_transaction(transaction.tx, disputed_transactions)?
+            if let Some(tx_details) =
+                db::load_disputed_transaction(transaction.tx, disputed_transactions)?
                 && let Some(account) = accounts.get_mut(&tx_details.client)
                 && !account.locked
             {
@@ -86,7 +87,7 @@ pub fn process_transaction(
                 account.locked = true;
                 db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
             }
-        },
+        }
     }
     Ok(())
 }
@@ -142,7 +143,9 @@ impl TryFrom<&Transaction> for TransactionDetails {
         Ok(TransactionDetails {
             transaction_id: value.tx,
             client: value.client,
-            amount: value.amount.ok_or(ProgrammerError::WrongCallForConvertation)?,
+            amount: value
+                .amount
+                .ok_or(ProgrammerError::WrongCallForConvertation)?,
         })
     }
 }
@@ -169,14 +172,23 @@ impl Account {
     }
 
     fn update_available(&mut self, amount: Amount) -> Result<()> {
-        self.available = self.available.checked_add(amount).ok_or(Error::Calculation)?;
-        self.total = self.available.checked_add(self.held).ok_or(Error::Calculation)?;
+        self.available = self
+            .available
+            .checked_add(amount)
+            .ok_or(Error::Calculation)?;
+        self.total = self
+            .available
+            .checked_add(self.held)
+            .ok_or(Error::Calculation)?;
         Ok(())
     }
 
     fn update_held(&mut self, amount: Amount) -> Result<()> {
         self.held = self.held.checked_add(amount).ok_or(Error::Calculation)?;
-        self.total = self.available.checked_add(self.held).ok_or(Error::Calculation)?;
+        self.total = self
+            .available
+            .checked_add(self.held)
+            .ok_or(Error::Calculation)?;
         Ok(())
     }
 }
@@ -197,13 +209,15 @@ mod tests {
         Decimal::from_str(&Decimal::new(1000000000000000001, 4).to_string()).unwrap();
         assert_eq!(
             Decimal::new(1000000000000000001, 4),
-            Reader::from_reader("type,client,tx,amount\ndeposit,1,1,100000000000000.0001".as_bytes())
-                .deserialize::<Transaction>()
-                .next()
-                .unwrap()
-                .unwrap()
-                .amount
-                .unwrap()
+            Reader::from_reader(
+                "type,client,tx,amount\ndeposit,1,1,100000000000000.0001".as_bytes()
+            )
+            .deserialize::<Transaction>()
+            .next()
+            .unwrap()
+            .unwrap()
+            .amount
+            .unwrap()
         );
     }
 

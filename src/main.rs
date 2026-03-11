@@ -5,7 +5,6 @@ use std::{
 
 use csv::{Reader, Writer};
 use derive_more::{Display, Error, From};
-
 use redb::{Database, backends::InMemoryBackend};
 use toy_payments_engine::prelude::*;
 

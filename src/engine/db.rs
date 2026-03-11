@@ -41,7 +41,9 @@ pub fn store_disputed_transaction(
     tx_details: TransactionDetails,
 ) -> Result<()> {
     let (k, v) = tx_details.as_key_and_value();
-    disputed_transactions.insert(k, v).map_err(redb::Error::from)?;
+    disputed_transactions
+        .insert(k, v)
+        .map_err(redb::Error::from)?;
     Ok(())
 }
 

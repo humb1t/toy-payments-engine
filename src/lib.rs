@@ -3,13 +3,12 @@
 //! The toy payments engine processes transactions from CSV input and maintains account balances.
 //! [`process_transactions`] in combination with [`State::new`] is all you need to start working.
 
-use std::result::Result as StdResult;
+use std::{collections::HashMap, io, result::Result as StdResult};
 
 use redb::Database;
 use redb_model::Model;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io};
 
 use crate::{
     engine::{DisputedTransactionDetails, TransactionDetails, TransactionType},
@@ -17,10 +16,9 @@ use crate::{
 };
 
 pub mod prelude {
-    pub use crate::Account;
-    pub use crate::State;
-    pub use crate::errors::Error as ToyPaymentsEngineError;
-    pub use crate::{Amount, ClientId, TransactionId};
+    pub use crate::{
+        Account, Amount, ClientId, State, TransactionId, errors::Error as ToyPaymentsEngineError,
+    };
 }
 
 /// Internal implementation and engine logic. Stay private.
@@ -41,13 +39,17 @@ type Result<T> = StdResult<T, Error>;
 /// This function reads all transactions from the input iterator, validates them,
 /// and applies them to update account balances stored in memory. All updates are
 /// persisted to the database during each transaction processing step.
-pub fn process_transactions<E>(reader: impl Iterator<Item = StdResult<Transaction, E>>, state: &mut State) -> Result<()>
+pub fn process_transactions<E>(
+    reader: impl Iterator<Item = StdResult<Transaction, E>>,
+    state: &mut State,
+) -> Result<()>
 where
     E: Into<io::Error>,
 {
     let database_transaction = state.database.begin_write().map_err(redb::Error::from)?;
     for result in reader {
-        let transaction: Transaction = result.map_err(|error| Error::TransactionRead(error.into()))?;
+        let transaction: Transaction =
+            result.map_err(|error| Error::TransactionRead(error.into()))?;
         let mut all_transactions = database_transaction
             .open_table(TransactionDetails::DEFINITION)
             .map_err(redb::Error::from)?;

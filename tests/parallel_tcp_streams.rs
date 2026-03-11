@@ -8,17 +8,16 @@ use std::{
 use csv::ReaderBuilder;
 use redb::{Database, backends::InMemoryBackend};
 use tokio::{
-    io::AsyncBufReadExt,
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    runtime::Builder,
     sync::mpsc::{self, Receiver, Sender},
-};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener,
     time,
 };
-use tokio::{net::TcpStream, runtime::Builder};
-use tokio_stream::wrappers::LinesStream;
-use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use tokio_stream::{
+    StreamExt,
+    wrappers::{LinesStream, ReceiverStream},
+};
 use toy_payments_engine::State;
 
 const TCP_ADDRESS: &str = "127.0.0.1:8000";
@@ -34,7 +33,11 @@ fn parallel_tcp_streams() {
     let (sender, receiver) = mpsc::channel::<ChannelMessage>(100);
     let parallelism = thread::available_parallelism().unwrap().get();
     let _simulation_handle = thread::spawn(move || {
-        let simulation_rt = Builder::new_multi_thread().enable_io().enable_time().build().unwrap();
+        let simulation_rt = Builder::new_multi_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
         simulation_rt.block_on(async {
             crate::simulation(parallelism, sender).await;
         });
@@ -45,7 +48,11 @@ fn parallel_tcp_streams() {
             crate::engine(receiver).await;
         });
     });
-    let test_rt = Builder::new_multi_thread().enable_io().enable_time().build().unwrap();
+    let test_rt = Builder::new_multi_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
     test_rt.block_on(async move {
         time::sleep(Duration::from_millis(TEST_DELAY_MS)).await;
         let payload_example = include_bytes!("./resourses/test_multiple_streams.csv");
@@ -82,7 +89,8 @@ async fn simulation(parallelism: usize, sender: Sender<ChannelMessage>) {
                 // NOT OPTIMAL, BUT OKAY FOR TESTS
                 let mut buf = Vec::new();
                 stream.0.read_to_end(&mut buf).await.unwrap();
-                let line_stream = LinesStream::new(buf.lines()).timeout(Duration::from_secs(STREAM_TIMEOUT_S));
+                let line_stream =
+                    LinesStream::new(buf.lines()).timeout(Duration::from_secs(STREAM_TIMEOUT_S));
                 tokio::pin!(line_stream);
                 while let Ok(Some(line)) = line_stream.try_next().await {
                     sender_clone.send(line.unwrap()).await.unwrap();
