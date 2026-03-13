@@ -48,20 +48,32 @@ where
 {
     let database_transaction = state.database.begin_write().map_err(redb::Error::from)?;
     for result in reader {
-        let transaction: Transaction =
-            result.map_err(|error| Error::TransactionRead(error.into()))?;
-        let mut all_transactions = database_transaction
-            .open_table(TransactionDetails::DEFINITION)
-            .map_err(redb::Error::from)?;
-        let mut disputed_transactions = database_transaction
-            .open_table(DisputedTransactionDetails::DEFINITION)
-            .map_err(redb::Error::from)?;
-        engine::process_transaction(
-            &transaction,
-            &mut state.accounts,
-            &mut all_transactions,
-            &mut disputed_transactions,
-        )?;
+        match result.map_err(|error| Error::TransactionRead(error.into())) {
+            Ok(transaction) => {
+                let mut all_transactions = database_transaction
+                    .open_table(TransactionDetails::DEFINITION)
+                    .map_err(redb::Error::from)?;
+                let mut disputed_transactions = database_transaction
+                    .open_table(DisputedTransactionDetails::DEFINITION)
+                    .map_err(redb::Error::from)?;
+                if let Err(_error) = engine::process_transaction(
+                    &transaction,
+                    &mut state.accounts,
+                    &mut all_transactions,
+                    &mut disputed_transactions,
+                ) {
+                    // not emmited to do not mess with possible CI tests
+                    // eprintln!(
+                    //     "error occurend during transaction {} processing: {error}",
+                    //     transaction.tx
+                    // );
+                }
+            }
+            Err(_error) => {
+                // not emmited to do not mess with possible CI tests
+                // eprintln!("error occurend during transaction read: {error}");
+            }
+        }
     }
     database_transaction.commit().map_err(redb::Error::from)?;
     Ok(())

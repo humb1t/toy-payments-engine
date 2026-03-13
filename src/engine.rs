@@ -57,10 +57,10 @@ pub fn process_transaction(
             if db::load_transaction(transaction.tx, all_transactions)?.is_none()
                 && let Some(amount) = transaction.amount
                 && let Some(account) = accounts.get_mut(&transaction.client)
+                && !account.locked
+                && amount != Decimal::ZERO
+                && account.available >= amount
             {
-                if account.locked || account.available < amount {
-                    return Err(Error::Input);
-                }
                 account.update_available(-amount)?;
                 db::store_transaction(transaction, all_transactions)?;
             }

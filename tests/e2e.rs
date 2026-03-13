@@ -9,7 +9,9 @@ fn test_wrong_client_format() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
 }
 
 #[test]
@@ -19,7 +21,9 @@ fn test_wrong_transaction_format() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
 }
 
 #[test]
@@ -29,7 +33,9 @@ fn test_wrong_amount_format() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
 }
 
 #[test]
@@ -39,7 +45,9 @@ fn test_negative_amount() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
 }
 
 #[test]
@@ -116,7 +124,17 @@ fn test_negative_withdrawal() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "10.0");
+    assert_eq!(fields[2], "0");
+    assert_eq!(fields[3], "10.0");
+    assert_eq!(fields[4], "false");
 }
 
 #[test]
@@ -168,7 +186,17 @@ fn test_insufficient_funds_deposit_withdrawal() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(!output.status.success(), "{output:?}");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "1.0");
+    assert_eq!(fields[2], "0");
+    assert_eq!(fields[3], "1.0");
+    assert_eq!(fields[4], "false");
 }
 
 #[test]
@@ -208,6 +236,27 @@ fn test_dispute_with_already_withdrawn_funds() {
     assert_eq!(fields[0], "1");
     assert_eq!(fields[1], "-8.5");
     assert_eq!(fields[2], "10.0");
+    assert_eq!(fields[3], "1.5");
+    assert_eq!(fields[4], "false");
+}
+
+#[test]
+fn test_dispute_resolve_with_already_withdrawn_funds() {
+    let input_file = "./tests/resourses/test_dispute_resolve_with_already_withdrawn_funds.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    dbg!(&data_line);
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "1.5");
+    assert_eq!(fields[2], "0.0");
     assert_eq!(fields[3], "1.5");
     assert_eq!(fields[4], "false");
 }
