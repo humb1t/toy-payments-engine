@@ -38,7 +38,7 @@ type Result<T> = StdResult<T, Error>;
 ///
 /// This function reads all transactions from the input iterator, validates them,
 /// and applies them to update account balances stored in memory. All updates are
-/// persisted to the database during each transaction processing step.
+/// persisted to the database or rollback if error occured.
 pub fn process_transactions<E>(
     reader: impl Iterator<Item = StdResult<Transaction, E>>,
     state: &mut State,
@@ -48,32 +48,19 @@ where
 {
     let database_transaction = state.database.begin_write().map_err(redb::Error::from)?;
     for result in reader {
-        match result.map_err(|error| Error::TransactionRead(error.into())) {
-            Ok(transaction) => {
-                let mut all_transactions = database_transaction
-                    .open_table(TransactionDetails::DEFINITION)
-                    .map_err(redb::Error::from)?;
-                let mut disputed_transactions = database_transaction
-                    .open_table(DisputedTransactionDetails::DEFINITION)
-                    .map_err(redb::Error::from)?;
-                if let Err(_error) = engine::process_transaction(
-                    &transaction,
-                    &mut state.accounts,
-                    &mut all_transactions,
-                    &mut disputed_transactions,
-                ) {
-                    // not emmited to do not mess with possible CI tests
-                    // eprintln!(
-                    //     "error occurend during transaction {} processing: {error}",
-                    //     transaction.tx
-                    // );
-                }
-            }
-            Err(_error) => {
-                // not emmited to do not mess with possible CI tests
-                // eprintln!("error occurend during transaction read: {error}");
-            }
-        }
+        let transaction = result.map_err(|error| Error::TransactionRead(error.into()))?;
+        let mut all_transactions = database_transaction
+            .open_table(TransactionDetails::DEFINITION)
+            .map_err(redb::Error::from)?;
+        let mut disputed_transactions = database_transaction
+            .open_table(DisputedTransactionDetails::DEFINITION)
+            .map_err(redb::Error::from)?;
+        engine::process_transaction(
+            &transaction,
+            &mut state.accounts,
+            &mut all_transactions,
+            &mut disputed_transactions,
+        )?;
     }
     database_transaction.commit().map_err(redb::Error::from)?;
     Ok(())

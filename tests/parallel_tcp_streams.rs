@@ -55,16 +55,25 @@ fn parallel_tcp_streams() {
         .unwrap();
     test_rt.block_on(async move {
         time::sleep(Duration::from_millis(TEST_DELAY_MS)).await;
-        let payload_example = include_bytes!("./resourses/test_multiple_streams.csv");
         let mut payload_senders_handlers = Vec::new();
-        for _ in 2..parallelism / 2 {
-            let handle = tokio::spawn(async {
+        for client_id in 2..parallelism / 2 {
+            let handle = tokio::spawn(async move {
                 let mut stream = TcpStream::connect(TCP_ADDRESS)
                     .await
                     .inspect_err(|error| eprintln!("{error:?}"))
                     .unwrap();
-                for _ in 0..TEST_REQUESTS_COUNT {
-                    stream.write_all(payload_example).await.unwrap();
+                for transactions_id_sequence in 0..TEST_REQUESTS_COUNT {
+                    stream
+                        .write_all(
+                            format!(
+                                "deposit,{},{},10.0\n",
+                                client_id,
+                                (client_id * 1000) + transactions_id_sequence
+                            )
+                            .as_bytes(),
+                        )
+                        .await
+                        .unwrap();
                 }
             });
             payload_senders_handlers.push(handle);

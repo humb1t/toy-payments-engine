@@ -34,44 +34,55 @@ pub fn process_transaction(
 ) -> Result<()> {
     if transaction
         .amount
-        .is_some_and(|decimal| decimal.is_sign_negative())
+        .is_some_and(|decimal| decimal.is_sign_negative() || decimal.is_zero())
     {
         return Err(Error::Input);
     }
     match transaction.transaction_type {
         TransactionType::Deposit => {
-            if db::load_transaction(transaction.tx, all_transactions)?.is_none()
-                && let Some(amount) = transaction.amount
-                && amount != Decimal::ZERO
-            {
+            let amount = transaction.amount.ok_or(Error::Input)?;
+            if db::load_transaction(transaction.tx, all_transactions)?.is_some() {
+                return Err(Error::Input);
+            } else {
                 let account = accounts
                     .entry(transaction.client)
                     .or_insert_with(|| Account::new(transaction.client));
-                if !account.locked {
-                    account.update_available(amount)?;
-                    db::store_transaction(transaction, all_transactions)?;
+                if account.locked {
+                    return Err(Error::Input);
                 }
+                account.update_available(amount)?;
+                db::store_transaction(transaction, all_transactions)?;
             }
         }
         TransactionType::Withdrawal => {
-            if db::load_transaction(transaction.tx, all_transactions)?.is_none()
-                && let Some(amount) = transaction.amount
-                && let Some(account) = accounts.get_mut(&transaction.client)
-                && !account.locked
-                && amount != Decimal::ZERO
-                && account.available >= amount
-            {
+            let amount = transaction.amount.ok_or(Error::Input)?;
+            if db::load_transaction(transaction.tx, all_transactions)?.is_some() {
+                return Err(Error::Input);
+            } else {
+                let account = accounts.get_mut(&transaction.client).ok_or(Error::Input)?;
+                if account.locked {
+                    return Err(Error::Input);
+                }
+                if account.available < amount {
+                    return Err(Error::Input);
+                }
                 account.update_available(-amount)?;
                 db::store_transaction(transaction, all_transactions)?;
             }
         }
         TransactionType::Dispute => {
-            if db::load_disputed_transaction(transaction.tx, disputed_transactions)?.is_none()
-                && let Some(tx_details) = db::load_transaction(transaction.tx, all_transactions)?
-                && transaction.client == tx_details.client
-                && let Some(account) = accounts.get_mut(&tx_details.client)
-                && !account.locked
-            {
+            if db::load_disputed_transaction(transaction.tx, disputed_transactions)?.is_some() {
+                return Err(Error::Input);
+            } else {
+                let tx_details =
+                    db::load_transaction(transaction.tx, all_transactions)?.ok_or(Error::Input)?;
+                if transaction.client != tx_details.client {
+                    return Err(Error::Input);
+                }
+                let account = accounts.get_mut(&transaction.client).ok_or(Error::Input)?;
+                if account.locked {
+                    return Err(Error::Input);
+                }
                 let dispute_amount = tx_details.amount;
                 // Can go negative, see `test_dispute_with_already_withdrawn_funds`
                 account.update_available(-dispute_amount)?;
@@ -80,34 +91,38 @@ pub fn process_transaction(
             }
         }
         TransactionType::Resolve => {
-            if let Some(tx_details) =
-                db::load_disputed_transaction(transaction.tx, disputed_transactions)?
-                && transaction.client == tx_details.client
-                && let Some(account) = accounts.get_mut(&tx_details.client)
-                && !account.locked
-            {
-                if account.held < tx_details.amount {
-                    return Err(Error::State);
-                }
-                account.update_held(-tx_details.amount)?;
-                account.update_available(tx_details.amount)?;
-                db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
+            let tx_details = db::load_disputed_transaction(transaction.tx, disputed_transactions)?
+                .ok_or(Error::Input)?;
+            if transaction.client != tx_details.client {
+                return Err(Error::Input);
             }
+            let account = accounts.get_mut(&transaction.client).ok_or(Error::Input)?;
+            if account.locked {
+                return Err(Error::Input);
+            }
+            if account.held < tx_details.amount {
+                return Err(Error::State);
+            }
+            account.update_held(-tx_details.amount)?;
+            account.update_available(tx_details.amount)?;
+            db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
         }
         TransactionType::Chargeback => {
-            if let Some(tx_details) =
-                db::load_disputed_transaction(transaction.tx, disputed_transactions)?
-                && transaction.client == tx_details.client
-                && let Some(account) = accounts.get_mut(&tx_details.client)
-                && !account.locked
-            {
-                if account.held < tx_details.amount {
-                    return Err(Error::State);
-                }
-                account.update_held(-tx_details.amount)?;
-                account.locked = true;
-                db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
+            let tx_details = db::load_disputed_transaction(transaction.tx, disputed_transactions)?
+                .ok_or(Error::Input)?;
+            if transaction.client != tx_details.client {
+                return Err(Error::Input);
             }
+            let account = accounts.get_mut(&transaction.client).ok_or(Error::Input)?;
+            if account.locked {
+                return Err(Error::Input);
+            }
+            if account.held < tx_details.amount {
+                return Err(Error::State);
+            }
+            account.update_held(-tx_details.amount)?;
+            account.locked = true;
+            db::remove_disputed_transaction(transaction.tx, disputed_transactions)?;
         }
     }
     Ok(())
