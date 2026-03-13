@@ -53,6 +53,42 @@ fn test_expected_piped_run() {
 }
 
 #[test]
+fn test_withdrawal_without_deposit() {
+    let input_file = "./tests/resourses/test_withdrawal_without_deposit.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
+}
+
+#[test]
+fn test_null_deposit() {
+    let input_file = "./tests/resourses/test_null_deposit.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
+}
+
+#[test]
+fn test_zero_deposit() {
+    let input_file = "./tests/resourses/test_zero_deposit.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    assert!(output_str.is_empty(), "{output_str}");
+}
+
+#[test]
 fn test_basic_deposit_withdrawal() {
     let input_file = "./tests/resourses/test_basic.csv";
     let output = Command::new("cargo")
@@ -71,6 +107,16 @@ fn test_basic_deposit_withdrawal() {
     assert_eq!(fields[2], "0");
     assert_eq!(fields[3], "5.0");
     assert_eq!(fields[4], "false");
+}
+
+#[test]
+fn test_negative_withdrawal() {
+    let input_file = "./tests/resourses/test_negative_withdrawal.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -146,6 +192,27 @@ fn test_dispute_resolve_workflow() {
 }
 
 #[test]
+fn test_dispute_with_already_withdrawn_funds() {
+    let input_file = "./tests/resourses/test_dispute_with_already_withdrawn_funds.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    dbg!(&data_line);
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1");
+    assert_eq!(fields[1], "-8.5");
+    assert_eq!(fields[2], "10.0");
+    assert_eq!(fields[3], "1.5");
+    assert_eq!(fields[4], "false");
+}
+
+#[test]
 fn chargeback_on_a_non_existent_disputed_transaction() {
     let input_file = "./tests/resourses/test_chargeback_on_a_non_existent_disputed_transaction.csv";
     let output = Command::new("cargo")
@@ -209,7 +276,27 @@ fn test_chargeback_workflow() {
 }
 
 #[test]
-fn test_multiple_clients() {
+fn test_malicious_chargeback_workflow() {
+    let input_file = "./tests/resourses/test_malicious_chargeback.csv";
+    let output = Command::new("cargo")
+        .args(["run", "--", input_file])
+        .output()
+        .expect("Failed to execute cargo run");
+    assert!(output.status.success(), "{output:?}");
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let lines: Vec<&str> = output_str.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let data_line = lines[1];
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields[0], "1"); // client
+    assert_eq!(fields[1], "10.0"); // available
+    assert_eq!(fields[2], "0"); // held
+    assert_eq!(fields[3], "10.0"); // total 
+    assert_eq!(fields[4], "false"); // locked
+}
+
+#[test]
+fn test_two_clients() {
     let input_file = "./tests/resourses/test_multiple_clients.csv";
     let output = Command::new("cargo")
         .args(["run", "--", input_file])

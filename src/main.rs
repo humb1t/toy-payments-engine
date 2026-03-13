@@ -3,7 +3,7 @@ use std::{
     io::{self, BufReader},
 };
 
-use csv::{Reader, Writer};
+use csv::{ReaderBuilder, Trim, Writer};
 use derive_more::{Display, Error, From};
 use redb::{Database, backends::InMemoryBackend};
 use toy_payments_engine::prelude::*;
@@ -15,7 +15,9 @@ fn main() -> Result<(), Error> {
     }
     let input_path = &args[1];
     let file = File::open(input_path)?;
-    let mut reader = Reader::from_reader(BufReader::new(file));
+    let mut reader = ReaderBuilder::new()
+        .trim(Trim::All)
+        .from_reader(BufReader::new(file));
     let database = Database::builder()
         .create_with_backend(InMemoryBackend::new())
         .map_err(redb::Error::from)?;

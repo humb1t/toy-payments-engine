@@ -35,7 +35,7 @@ The input CSV file must have columns:
 - `type` - Transaction type (deposit, withdrawal, dispute, resolve, chargeback)
 - `client` - Client ID (u16)
 - `tx` - Transaction ID (u32) 
-- `amount` - Amount for deposit/withdrawal transactions (f64)
+- `amount` - Amount for deposit/withdrawal transactions (Decimal)
 
 ## Output Format
 
