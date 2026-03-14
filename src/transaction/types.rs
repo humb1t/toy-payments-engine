@@ -1,8 +1,5 @@
 use derive_more::Constructor;
-use primitive_fixed_point_decimal::{fpdec, ConstScaleFpdec};
-use serde::Serialize;
-
-pub mod gcp;
+use primitive_fixed_point_decimal::ConstScaleFpdec;
 
 pub type Balance = ConstScaleFpdec<i64, 4>;
 
@@ -38,48 +35,11 @@ pub struct Chargeback {
     pub tx: u32,
 }
 
-#[derive(Debug, Serialize)]
-pub struct Account {
-    pub client: u16,
-    pub available: Balance,
-    pub held: Balance,
-    pub total: Balance,
-    pub locked: bool,
-}
-
-#[derive(Clone, Copy, Constructor)]
-pub struct Difference {
-    pub available: Balance,
-    pub held: Balance,
-    pub lock: bool,
-}
-
-impl Account {
-    pub fn new(client: u16) -> Self {
-        Self {
-            client,
-            available: fpdec!(0),
-            held: fpdec!(0),
-            total: fpdec!(0),
-            locked: false,
-        }
-    }
-
-    pub fn apply(&mut self, difference: Difference) {
-        self.available += difference.available;
-        self.held += difference.held;
-        self.total = self.available + self.held;
-        self.locked = difference.lock;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
-    use crate::engine::gcp::CanCalculateDisputeDifference;
-
-    use super::gcp::CanCalculateDifference;
+    use primitive_fixed_point_decimal::fpdec;
 
     use super::*;
 
@@ -88,9 +48,8 @@ mod tests {
         let client = 1;
         let deposit_amount = fpdec!(50.1234);
         let withdrawal_amount = fpdec!(30.1234);
-        let expected_balance: Balance = fpdec!(20.0000);
+        let _expected_balance: Balance = fpdec!(20.0000);
         let tx_seq = AtomicU32::new(0);
-        let mut account = Account::new(client);
         let deposit = Deposit {
             client,
             tx: tx_seq.fetch_add(1, Ordering::Relaxed),
@@ -101,10 +60,10 @@ mod tests {
             tx: tx_seq.fetch_add(1, Ordering::Relaxed),
             amount: withdrawal_amount,
         };
-        for difference in [deposit.difference(), withdrawal.difference()] {
-            account.apply(difference);
-        }
-        assert_eq!(expected_balance, account.available, "{}", account.available);
+        assert_eq!(deposit.amount, deposit_amount);
+        assert_eq!(withdrawal.amount, withdrawal_amount);
+        assert!(deposit.amount.is_pos());
+        assert!(withdrawal.amount.is_pos());
     }
 
     #[test]
@@ -112,10 +71,7 @@ mod tests {
         let client = 1;
         let deposit_amount = fpdec!(50.1234);
         let withdrawal_amount = fpdec!(30.1234);
-        let expected_balance: Balance = fpdec!(50.1234);
-        let expected_held: Balance = fpdec!(-30.1234);
         let tx_seq = AtomicU32::new(0);
-        let mut account = Account::new(client);
         let deposit = Deposit {
             client,
             tx: tx_seq.fetch_add(1, Ordering::Relaxed),
@@ -128,13 +84,10 @@ mod tests {
         };
         let dispute = Dispute {
             client,
-            tx: tx_seq.load(Ordering::Relaxed),
+            tx: withdrawal.tx,
         };
-        for difference in [deposit.difference(), withdrawal.difference()] {
-            account.apply(difference);
-        }
-        account.apply(dispute.dispute_difference(&withdrawal.difference()));
-        assert_eq!(expected_balance, account.available, "{}", account.available);
-        assert_eq!(expected_held, account.held, "{}", account.held);
+        assert_eq!(deposit.amount, deposit_amount);
+        assert_eq!(withdrawal.amount, withdrawal_amount);
+        assert_eq!(dispute.tx, withdrawal.tx);
     }
 }

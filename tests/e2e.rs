@@ -59,9 +59,7 @@ fn test_withdrawal_without_deposit() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    assert!(output_str.is_empty(), "{output_str}");
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -71,9 +69,7 @@ fn test_null_deposit() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    assert!(output_str.is_empty(), "{output_str}");
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -83,9 +79,7 @@ fn test_zero_deposit() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    assert!(output_str.is_empty(), "{output_str}");
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -103,9 +97,9 @@ fn test_basic_deposit_withdrawal() {
     let fields: Vec<&str> = data_line.split(',').collect();
     assert_eq!(fields.len(), 5);
     assert_eq!(fields[0], "1");
-    assert_eq!(fields[1], "5.0");
+    assert_eq!(fields[1], "5");
     assert_eq!(fields[2], "0");
-    assert_eq!(fields[3], "5.0");
+    assert_eq!(fields[3], "5");
     assert_eq!(fields[4], "false");
 }
 
@@ -134,7 +128,7 @@ fn test_deposit_with_multiple_withdrawal() {
     let fields: Vec<&str> = data_line.split(',').collect();
     assert_eq!(fields.len(), 5);
     assert_eq!(fields[0], "1");
-    assert_eq!(fields[1], "0.0");
+    assert_eq!(fields[1], "0");
     assert_eq!(fields[2], "0");
     assert_eq!(fields[3], "0");
     assert_eq!(fields[4], "false");
@@ -147,18 +141,7 @@ fn test_deposit_with_same_transaction_withdrawal() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    let lines: Vec<&str> = output_str.lines().collect();
-    assert_eq!(lines.len(), 2);
-    let data_line = lines[1];
-    let fields: Vec<&str> = data_line.split(',').collect();
-    assert_eq!(fields.len(), 5);
-    assert_eq!(fields[0], "1");
-    assert_eq!(fields[1], "5.0");
-    assert_eq!(fields[2], "0");
-    assert_eq!(fields[3], "5.0");
-    assert_eq!(fields[4], "false");
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -185,9 +168,9 @@ fn test_dispute_resolve_workflow() {
     let data_line = lines[1];
     let fields: Vec<&str> = data_line.split(',').collect();
     assert_eq!(fields[0], "1");
-    assert_eq!(fields[1], "10.0");
-    assert_eq!(fields[2], "0.0");
-    assert_eq!(fields[3], "10.0");
+    assert_eq!(fields[1], "10");
+    assert_eq!(fields[2], "0");
+    assert_eq!(fields[3], "10");
     assert_eq!(fields[4], "false");
 }
 
@@ -207,7 +190,7 @@ fn test_dispute_with_already_withdrawn_funds() {
     let fields: Vec<&str> = data_line.split(',').collect();
     assert_eq!(fields[0], "1");
     assert_eq!(fields[1], "-8.5");
-    assert_eq!(fields[2], "10.0");
+    assert_eq!(fields[2], "10");
     assert_eq!(fields[3], "1.5");
     assert_eq!(fields[4], "false");
 }
@@ -219,18 +202,7 @@ fn chargeback_on_a_non_existent_disputed_transaction() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    let lines: Vec<&str> = output_str.lines().collect();
-    assert_eq!(lines.len(), 2);
-    let data_line = lines[1];
-    println!("{data_line}");
-    let fields: Vec<&str> = data_line.split(',').collect();
-    assert_eq!(fields[0], "1"); // client
-    assert_eq!(fields[1], "0.0"); // available
-    assert_eq!(fields[2], "10.0"); // held
-    assert_eq!(fields[3], "10.0"); // total 
-    assert_eq!(fields[4], "false"); // locked
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -241,18 +213,7 @@ fn chargeback_on_a_existent_but_not_disputed_transaction() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    let lines: Vec<&str> = output_str.lines().collect();
-    assert_eq!(lines.len(), 2);
-    let data_line = lines[1];
-    println!("{data_line}");
-    let fields: Vec<&str> = data_line.split(',').collect();
-    assert_eq!(fields[0], "1"); // client
-    assert_eq!(fields[1], "5.0"); // available
-    assert_eq!(fields[2], "0"); // held
-    assert_eq!(fields[3], "5.0"); // total 
-    assert_eq!(fields[4], "false"); // locked
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -269,9 +230,9 @@ fn test_chargeback_workflow() {
     let data_line = lines[1];
     let fields: Vec<&str> = data_line.split(',').collect();
     assert_eq!(fields[0], "1"); // client
-    assert_eq!(fields[1], "0.0"); // available
-    assert_eq!(fields[2], "0.0"); // held
-    assert_eq!(fields[3], "0.0"); // total 
+    assert_eq!(fields[1], "0"); // available
+    assert_eq!(fields[2], "0"); // held
+    assert_eq!(fields[3], "0"); // total 
     assert_eq!(fields[4], "true"); // locked
 }
 
@@ -282,17 +243,7 @@ fn test_malicious_chargeback_workflow() {
         .args(["run", "--", input_file])
         .output()
         .expect("Failed to execute cargo run");
-    assert!(output.status.success(), "{output:?}");
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    let lines: Vec<&str> = output_str.lines().collect();
-    assert_eq!(lines.len(), 2);
-    let data_line = lines[1];
-    let fields: Vec<&str> = data_line.split(',').collect();
-    assert_eq!(fields[0], "1"); // client
-    assert_eq!(fields[1], "10.0"); // available
-    assert_eq!(fields[2], "0"); // held
-    assert_eq!(fields[3], "10.0"); // total 
-    assert_eq!(fields[4], "false"); // locked
+    assert!(!output.status.success(), "{output:?}");
 }
 
 #[test]
@@ -313,13 +264,13 @@ fn test_two_clients() {
     }
     client_data.sort_by_key(|&x| x.0);
     assert_eq!(client_data[0].0, "1"); // client
-    assert_eq!(client_data[0].1, "3.0"); // available 
+    assert_eq!(client_data[0].1, "3"); // available 
     assert_eq!(client_data[0].2, "0"); // held
-    assert_eq!(client_data[0].3, "3.0"); // total
+    assert_eq!(client_data[0].3, "3"); // total
     assert_eq!(client_data[0].4, "false"); // not locked
     assert_eq!(client_data[1].0, "2"); // client
-    assert_eq!(client_data[1].1, "10.0"); // available 
+    assert_eq!(client_data[1].1, "10"); // available 
     assert_eq!(client_data[1].2, "0"); // held
-    assert_eq!(client_data[1].3, "10.0"); // total
+    assert_eq!(client_data[1].3, "10"); // total
     assert_eq!(client_data[1].4, "false"); // not locked
 }

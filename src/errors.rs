@@ -4,8 +4,10 @@ use derive_more::{Display, Error, From};
 
 #[derive(Debug, Error, Display, From)]
 pub enum Error {
-    TransactionRead(io::Error),
-    Database(redb::Error),
+    #[from]
+    Io(io::Error),
+    #[from]
+    Csv(csv::Error),
     Programmer(ProgrammerError),
     #[display(
         "incorrect math calculation, like attempt to substract with overflow, code changes may be needed"

@@ -2,32 +2,11 @@
 
 A simple payments engine implementation that processes transactions from CSV files and outputs account balances.
 
-## TL;DR
-
-```bash
-cargo run -- sample.csv > accounts.csv
-cargo test
-cargo test -- --ignored
-```
-
 ## Features
 
 - Processes deposit, withdrawal, dispute, resolve, and chargeback transactions
 - Handles client account tracking with available, held, and total funds
 - Implements proper locking mechanism for charged back accounts
-- Supports all required transaction types according to the specification
-	
-## Building
-
-```bash
-cargo build
-```
-
-## Running
-
-```bash
-cargo run -- sample.csv > accounts.csv
-```
 
 ## Input Format
 
@@ -35,12 +14,12 @@ The input CSV file must have columns:
 - `type` - Transaction type (deposit, withdrawal, dispute, resolve, chargeback)
 - `client` - Client ID (u16)
 - `tx` - Transaction ID (u32) 
-- `amount` - Amount for deposit/withdrawal transactions (Decimal)
+- `amount` - Amount for deposit/withdrawal transactions (positive decimal)
 
 ## Output Format
 
 The output will be written to stdout in CSV format with columns:
-- `client` - Client ID
+- `client` - Client ID (u16)
 - `available` - Available funds for trading/staking/withdrawal
 - `held` - Funds held due to dispute
 - `total` - Total funds (available + held)
@@ -49,9 +28,7 @@ The output will be written to stdout in CSV format with columns:
 ## Implementation Details
 
 ### Core Data Structures
-- `Transaction`: Represents a single transaction with type, client, tx ID, and optional amount
-- `Account`: Tracks client balances (available, held, total) and lock status  
-- `TransactionDetails`: Helper structure for tracking transaction amounts during disputes
+// TODO:
 
 ### Transaction Processing
 1. **Deposit**: Increases available and total funds

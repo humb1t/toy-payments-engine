@@ -1,0 +1,74 @@
+mod providers;
+
+pub use providers::*;
+
+use cgp::prelude::*;
+use std::collections::HashMap;
+
+use crate::difference::Difference;
+use crate::transaction::{Chargeback, Deposit, Dispute, Resolve, Withdrawal};
+use crate::{ClientId, TransactionId};
+
+#[cgp_auto_getter]
+pub trait HasTransactions {
+    fn transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference>;
+}
+
+#[cgp_auto_getter]
+pub trait HasDisputedTransactions {
+    fn disputed_transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference>;
+}
+
+#[cgp_auto_getter]
+pub trait HasAccount {
+    fn account(&self) -> &crate::account::Account;
+}
+
+#[cgp_component(DepositValidator)]
+pub trait CanValidateDeposit {
+    fn validate_deposit(&self, deposit: &Deposit) -> Result<(), crate::errors::Error>;
+}
+
+#[cgp_component(WithdrawalValidator)]
+pub trait CanValidateWithdrawal {
+    fn validate_withdrawal(&self, withdrawal: &Withdrawal) -> Result<(), crate::errors::Error>;
+}
+
+#[cgp_component(DisputeValidator)]
+pub trait CanValidateDispute {
+    fn validate_dispute(&self, dispute: &Dispute) -> Result<(), crate::errors::Error>;
+}
+
+#[cgp_component(ResolveValidator)]
+pub trait CanValidateResolve {
+    fn validate_resolve(&self, resolve: &Resolve) -> Result<(), crate::errors::Error>;
+}
+
+#[cgp_component(ChargebackValidator)]
+pub trait CanValidateChargeback {
+    fn validate_chargeback(&self, chargeback: &Chargeback) -> Result<(), crate::errors::Error>;
+}
+
+pub struct ValidationContext<'a> {
+    pub transactions: &'a HashMap<(ClientId, TransactionId), Difference>,
+    pub disputed_transactions: &'a HashMap<(ClientId, TransactionId), Difference>,
+    pub account: &'a crate::account::Account,
+}
+
+impl<'a> HasTransactions for ValidationContext<'a> {
+    fn transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference> {
+        self.transactions
+    }
+}
+
+impl<'a> HasDisputedTransactions for ValidationContext<'a> {
+    fn disputed_transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference> {
+        self.disputed_transactions
+    }
+}
+
+impl<'a> HasAccount for ValidationContext<'a> {
+    fn account(&self) -> &crate::account::Account {
+        self.account
+    }
+}
