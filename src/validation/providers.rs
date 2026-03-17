@@ -8,10 +8,7 @@ where
     Self: HasTransactions,
 {
     fn validate_deposit(&self, deposit: &Deposit) -> Result<(), crate::errors::Error> {
-        if self
-            .transactions()
-            .contains_key(&(deposit.client, deposit.tx))
-        {
+        if self.transactions().contains_key(&(deposit.client, deposit.tx)) {
             return Err(crate::errors::Error::State);
         }
         if !deposit.amount.is_pos() {
@@ -27,10 +24,7 @@ where
     Self: HasTransactions + HasAccount,
 {
     fn validate_withdrawal(&self, withdrawal: &Withdrawal) -> Result<(), crate::errors::Error> {
-        if self
-            .transactions()
-            .contains_key(&(withdrawal.client, withdrawal.tx))
-        {
+        if self.transactions().contains_key(&(withdrawal.client, withdrawal.tx)) {
             return Err(crate::errors::Error::State);
         }
         if self.account().available < withdrawal.amount {
@@ -46,10 +40,7 @@ where
     Self: HasTransactions,
 {
     fn validate_dispute(&self, dispute: &Dispute) -> Result<(), crate::errors::Error> {
-        if !self
-            .transactions()
-            .contains_key(&(dispute.client, dispute.tx))
-        {
+        if !self.transactions().contains_key(&(dispute.client, dispute.tx)) {
             return Err(crate::errors::Error::Input);
         }
         Ok(())
@@ -62,16 +53,10 @@ where
     Self: HasTransactions + HasDisputedTransactions,
 {
     fn validate_resolve(&self, resolve: &Resolve) -> Result<(), crate::errors::Error> {
-        if !self
-            .transactions()
-            .contains_key(&(resolve.client, resolve.tx))
-        {
+        if !self.transactions().contains_key(&(resolve.client, resolve.tx)) {
             return Err(crate::errors::Error::Input);
         }
-        if !self
-            .disputed_transactions()
-            .contains_key(&(resolve.client, resolve.tx))
-        {
+        if !self.disputed_transactions().contains_key(&(resolve.client, resolve.tx)) {
             return Err(crate::errors::Error::Input);
         }
         Ok(())
@@ -84,10 +69,7 @@ where
     Self: HasTransactions + HasDisputedTransactions,
 {
     fn validate_chargeback(&self, chargeback: &Chargeback) -> Result<(), crate::errors::Error> {
-        if !self
-            .transactions()
-            .contains_key(&(chargeback.client, chargeback.tx))
-        {
+        if !self.transactions().contains_key(&(chargeback.client, chargeback.tx)) {
             return Err(crate::errors::Error::Input);
         }
         if !self
@@ -114,10 +96,10 @@ delegate_components! {
 mod tests {
     use std::collections::HashMap;
 
-    use super::*;
-    use crate::account::Account;
-    use crate::difference::Difference;
     use primitive_fixed_point_decimal::fpdec;
+
+    use super::*;
+    use crate::{account::Account, difference::Difference};
 
     fn create_test_account() -> Account {
         Account::new(1)

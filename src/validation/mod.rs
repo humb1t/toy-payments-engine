@@ -1,13 +1,15 @@
 mod providers;
 
-pub use providers::*;
-
-use cgp::prelude::*;
 use std::collections::HashMap;
 
-use crate::difference::Difference;
-use crate::transaction::{Chargeback, Deposit, Dispute, Resolve, Withdrawal};
-use crate::{ClientId, TransactionId};
+use cgp::prelude::*;
+pub use providers::*;
+
+use crate::{
+    ClientId, TransactionId,
+    difference::Difference,
+    transaction::{Chargeback, Deposit, Dispute, Resolve, Withdrawal},
+};
 
 #[cgp_auto_getter]
 pub trait HasTransactions {

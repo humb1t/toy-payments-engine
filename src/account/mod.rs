@@ -1,10 +1,9 @@
 use primitive_fixed_point_decimal::fpdec;
 use serde::Serialize;
 
-use crate::difference::Difference;
-use crate::transaction::Balance;
+use crate::{difference::Difference, transaction::Balance};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Account {
     pub client: u16,
     pub available: Balance,

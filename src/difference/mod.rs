@@ -1,10 +1,10 @@
-use cgp::prelude::*;
-use derive_more::Constructor;
-use primitive_fixed_point_decimal::fpdec;
+pub use cgp::prelude::*;
+pub use derive_more::Constructor;
+pub use primitive_fixed_point_decimal::fpdec;
 
-use crate::transaction::{Balance, Chargeback, Deposit, Dispute, Resolve, Withdrawal};
+pub use crate::transaction::{Balance, Chargeback, Deposit, Dispute, Resolve, Withdrawal};
 
-#[derive(Clone, Copy, Constructor)]
+#[derive(Clone, Copy, Constructor, Debug, PartialEq)]
 pub struct Difference {
     pub available: Balance,
     pub held: Balance,
