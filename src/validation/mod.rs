@@ -6,9 +6,9 @@ use cgp::prelude::*;
 pub use providers::*;
 
 use crate::{
-    ClientId, TransactionId,
+    account::ClientId,
     difference::Difference,
-    transaction::{Chargeback, Deposit, Dispute, Resolve, Withdrawal},
+    transaction::{Chargeback, Deposit, Dispute, Resolve, TransactionId, Withdrawal},
 };
 
 #[cgp_auto_getter]
@@ -49,28 +49,4 @@ pub trait CanValidateResolve {
 #[cgp_component(ChargebackValidator)]
 pub trait CanValidateChargeback {
     fn validate_chargeback(&self, chargeback: &Chargeback) -> Result<(), crate::errors::Error>;
-}
-
-pub struct ValidationContext<'a> {
-    pub transactions: &'a HashMap<(ClientId, TransactionId), Difference>,
-    pub disputed_transactions: &'a HashMap<(ClientId, TransactionId), Difference>,
-    pub account: &'a crate::account::Account,
-}
-
-impl<'a> HasTransactions for ValidationContext<'a> {
-    fn transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference> {
-        self.transactions
-    }
-}
-
-impl<'a> HasDisputedTransactions for ValidationContext<'a> {
-    fn disputed_transactions(&self) -> &HashMap<(ClientId, TransactionId), Difference> {
-        self.disputed_transactions
-    }
-}
-
-impl<'a> HasAccount for ValidationContext<'a> {
-    fn account(&self) -> &crate::account::Account {
-        self.account
-    }
 }

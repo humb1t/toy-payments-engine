@@ -3,6 +3,8 @@ use serde::Serialize;
 
 use crate::{difference::Difference, transaction::Balance};
 
+pub type ClientId = u16;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Account {
     pub client: u16,

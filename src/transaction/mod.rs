@@ -1,9 +1,13 @@
 use std::io::Read;
 
-use crate::{ClientId, errors::Error};
-
+pub use component::*;
+pub use processors::*;
 pub use types::*;
 
+use crate::{account::ClientId, errors::Error};
+
+mod component;
+mod processors;
 mod types;
 
 const TYPE_COLUMN_HEADER: &str = "type";
@@ -16,6 +20,8 @@ const WITHDRAWAL_TRANSACTION_TYPE: &str = "withdrawal";
 const DISPUTE_TRANSACTION_TYPE: &str = "dispute";
 const RESOLVE_TRANSACTION_TYPE: &str = "resolve";
 const CHARGEBACK_TRANSACTION_TYPE: &str = "chargeback";
+
+pub type TransactionId = u32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Transaction {

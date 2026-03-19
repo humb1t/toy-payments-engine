@@ -1,10 +1,11 @@
 use std::{
     fs::File,
     io::{self, BufReader},
+    thread,
 };
 
 use csv::{ReaderBuilder, Trim, Writer};
-use toy_payments_engine::prelude::*;
+use toy_payments_engine::{State, errors::Error, transaction::TransactionIterator};
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -26,8 +27,7 @@ fn main() -> Result<(), Error> {
 
     let state = if parallel_mode {
         let transactions: Vec<_> = TransactionIterator::new(reader)?.collect::<Result<_, _>>()?;
-        //TODO: replace with parallelism
-        let shard_count = num_cpus::get().max(1);
+        let shard_count = thread::available_parallelism()?.into();
         toy_payments_engine::process_transactions_parallel(transactions, shard_count)?
     } else {
         let mut state = State::default();

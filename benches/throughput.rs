@@ -1,9 +1,14 @@
+#![allow(clippy::unwrap_used)]
+
 use std::hint::black_box;
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use primitive_fixed_point_decimal::fpdec;
 use toy_payments_engine::{
-    State, Transaction, process_transactions, process_transactions_parallel,
+    State,
+    Transaction,
+    process_transactions,
+    process_transactions_parallel,
     transaction::{Deposit, Withdrawal},
 };
 
@@ -52,7 +57,7 @@ fn bench_sequential(c: &mut Criterion) {
 
 fn bench_parallel(c: &mut Criterion) {
     let mut group = c.benchmark_group("parallel");
-    let shard_count = num_cpus::get();
+    let shard_count = 10;
 
     for num_clients in [10, 100, 1000, 10000u16] {
         let transactions = generate_transactions(num_clients, 10);
@@ -75,7 +80,7 @@ fn bench_parallel(c: &mut Criterion) {
 
 fn bench_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("comparison");
-    let shard_count = num_cpus::get();
+    let shard_count = 10;
 
     for num_clients in [100, 1000, 10000u16] {
         let transactions = generate_transactions(num_clients, 10);
