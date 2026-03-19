@@ -71,3 +71,15 @@ cargo fmt
 - Use integration tests where necessary
 - Test both success and error cases
 - Name tests descriptively with `test_` prefix
+
+### Security
+- Avoid unsafe code (`unsafe_code = "forbid"` in Cargo.toml)
+- All `unwrap()` and `expect()` usage is forbidden by clippy
+- All `todo!()` and `unimplemented!()` usage is forbidden by clippy
+
+### Dependencies
+- Use `cgp` crate for context-generic programming
+- Use `derive_more` for convenient derive macros
+- Use `serde` for serialization
+- Use `primitive_fixed_point_decimal` for decimal arithmetic
+- Use `csv` for CSV processing

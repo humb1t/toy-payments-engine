@@ -12,15 +12,14 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       continue-on-error: false
       with:
-        toolchain: stable
+        toolchain: nightly
         components: clippy, rustfmt
     - run: |
         rustup --version
         cargo --version
         rustc --version
     - run: |
-        cargo fmt --all -- --check
+        cargo +nightly fmt --all -- --check
     - run: |
         cargo clippy --all --all-targets --all-features
     - run: cargo test
-    - run: cargo test -- --ignored

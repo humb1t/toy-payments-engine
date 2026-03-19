@@ -1,28 +1,40 @@
 use std::{
     fs::File,
     io::{self, BufReader},
+    thread,
 };
 
 use csv::{ReaderBuilder, Trim, Writer};
-use derive_more::{Display, Error, From};
-use redb::{Database, backends::InMemoryBackend};
-use toy_payments_engine::prelude::*;
+use toy_payments_engine::{State, errors::Error, transaction::TransactionIterator};
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        return Err(Error::Arguments);
+        return Err(Error::Input);
     }
-    let input_path = &args[1];
+
+    let parallel_mode = args.iter().any(|arg| arg == "--parallel");
+    let input_path = if parallel_mode {
+        args.iter()
+            .find(|arg| !arg.starts_with("--") && *arg != &args[0])
+            .ok_or(Error::Input)?
+    } else {
+        &args[1]
+    };
+
     let file = File::open(input_path)?;
-    let mut reader = ReaderBuilder::new()
-        .trim(Trim::All)
-        .from_reader(BufReader::new(file));
-    let database = Database::builder()
-        .create_with_backend(InMemoryBackend::new())
-        .map_err(redb::Error::from)?;
-    let mut state = State::new(database);
-    toy_payments_engine::process_transactions(reader.deserialize(), &mut state)?;
+    let reader = ReaderBuilder::new().trim(Trim::All).from_reader(BufReader::new(file));
+
+    let state = if parallel_mode {
+        let transactions: Vec<_> = TransactionIterator::new(reader)?.collect::<Result<_, _>>()?;
+        let shard_count = thread::available_parallelism()?.into();
+        toy_payments_engine::process_transactions_parallel(transactions, shard_count)?
+    } else {
+        let mut state = State::default();
+        toy_payments_engine::process_transactions(TransactionIterator::new(reader)?, &mut state)?;
+        state
+    };
+
     let accounts = state.accounts.values();
     let mut writer = Writer::from_writer(io::stdout());
     for account in accounts {
@@ -30,16 +42,4 @@ fn main() -> Result<(), Error> {
     }
     writer.flush()?;
     Ok(())
-}
-
-/// Possible errors of executable CLI.
-/// Categories based, please add new variants based on category of errors.
-#[derive(Debug, Error, Display, From)]
-enum Error {
-    #[display("Usage: cargo run -- sample.csv")]
-    Arguments,
-    Io(io::Error),
-    Csv(csv::Error),
-    Database(redb::Error),
-    Engine(ToyPaymentsEngineError),
 }

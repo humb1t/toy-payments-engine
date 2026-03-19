@@ -1,117 +1,69 @@
-//! Main API for `toy-payments-engine`.
-//!
-//! The toy payments engine processes transactions from CSV input and maintains account balances.
-//! [`process_transactions`] in combination with [`State::new`] is all you need to start working.
+use rayon::prelude::*;
 
-use std::{collections::HashMap, io, result::Result as StdResult};
-
-use redb::Database;
-use redb_model::Model;
-use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    engine::{DisputedTransactionDetails, TransactionDetails, TransactionType},
-    errors::Error,
+pub use crate::{
+    account::Account,
+    context::{Shard, ShardedState, State},
+    transaction::Transaction,
 };
+use crate::{context::TransactionContext, errors::Error, transaction::CanProcessTransaction};
 
-pub mod prelude {
-    pub use crate::{
-        Account, Amount, ClientId, State, TransactionId, errors::Error as ToyPaymentsEngineError,
-    };
-}
-
-/// Internal implementation and engine logic. Stay private.
-mod engine;
+pub mod account;
+pub mod context;
+pub mod difference;
 pub mod errors;
+pub mod transaction;
+pub mod validation;
 
-/// Type alias for client ID
-pub type ClientId = u16;
-/// Type alias for transaction ID  
-pub type TransactionId = u32;
-/// Type alias for monetary amounts
-pub type Amount = Decimal;
-/// Result type for operations
-type Result<T> = StdResult<T, Error>;
-
-/// Process a stream of transactions from CSV reader.
-///
-/// This function reads all transactions from the input iterator, validates them,
-/// and applies them to update account balances stored in memory. All updates are
-/// persisted to the database during each transaction processing step.
-pub fn process_transactions<E>(
-    reader: impl Iterator<Item = StdResult<Transaction, E>>,
+pub fn process_transactions(
+    reader: impl Iterator<Item = Result<Transaction, Error>>,
     state: &mut State,
-) -> Result<()>
-where
-    E: Into<io::Error>,
-{
-    let database_transaction = state.database.begin_write().map_err(redb::Error::from)?;
-    for result in reader {
-        let transaction: Transaction =
-            result.map_err(|error| Error::TransactionRead(error.into()))?;
-        let mut all_transactions = database_transaction
-            .open_table(TransactionDetails::DEFINITION)
-            .map_err(redb::Error::from)?;
-        let mut disputed_transactions = database_transaction
-            .open_table(DisputedTransactionDetails::DEFINITION)
-            .map_err(redb::Error::from)?;
-        engine::process_transaction(
-            &transaction,
-            &mut state.accounts,
-            &mut all_transactions,
-            &mut disputed_transactions,
-        )?;
+) -> Result<(), Error> {
+    for transaction in reader {
+        apply_transaction(state, transaction?)?;
     }
-    database_transaction.commit().map_err(redb::Error::from)?;
     Ok(())
 }
 
-/// Engine state for maintaining account information.
-///
-/// This struct holds the current account balances and database connection
-/// required for processing transactions.
-pub struct State {
-    /// Map of client accounts by client ID
-    pub accounts: HashMap<ClientId, Account>,
-    /// Database connection for persistent storage
-    database: Database,
-}
-
-impl State {
-    /// Create a new state with the given database.
-    ///
-    /// Note: This implementation does not persist account information across restarts.
-    /// All account data is maintained only in memory during operation.
-    pub fn new(database: Database) -> Self {
-        Self {
-            database,
-            accounts: HashMap::new(),
-        }
+pub fn process_transactions_parallel(transactions: Vec<Transaction>, shard_count: usize) -> Result<State, Error> {
+    let mut sharded_state = ShardedState::new(shard_count);
+    let mut shards_transactions: Vec<Vec<Transaction>> = (0..shard_count).map(|_| Vec::new()).collect();
+    for transaction in transactions {
+        let shard_id = sharded_state.shard_index(transaction.client());
+        shards_transactions[shard_id].push(transaction);
     }
+    sharded_state.shards = sharded_state
+        .shards
+        .into_par_iter()
+        .zip(shards_transactions.into_par_iter())
+        .map(|(mut shard, transactions)| {
+            for transaction in transactions {
+                apply_transaction(shard.as_mut(), transaction)?;
+            }
+            Ok(shard)
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    Ok(sharded_state.merge_into_state())
 }
 
-/// Transaction type definition for CSV parsing.
-///
-/// This struct represents a single transaction from the input CSV file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Transaction {
-    #[serde(rename = "type")]
-    transaction_type: TransactionType,
-    client: ClientId,
-    tx: TransactionId,
-    amount: Option<Amount>,
-}
-
-/// Account information structure.
-///
-/// Stores balance information for a single client including available funds,
-/// held funds (in dispute), total balance, and lock status.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Account {
-    client: ClientId,
-    available: Amount,
-    held: Amount,
-    total: Amount,
-    locked: bool,
+fn apply_transaction(state: &mut State, transaction: Transaction) -> Result<(), Error> {
+    let client_id = transaction.client();
+    let account = state
+        .accounts
+        .entry(client_id)
+        .or_insert_with(|| Account::new(client_id));
+    if account.locked {
+        return Err(Error::State);
+    }
+    let mut ctx = TransactionContext {
+        account,
+        transactions: &mut state.transactions,
+        disputed_transactions: &mut state.disputed_transactions,
+    };
+    match &transaction {
+        Transaction::Deposit(tx) => ctx.process_transaction(tx),
+        Transaction::Withdrawal(tx) => ctx.process_transaction(tx),
+        Transaction::Dispute(tx) => ctx.process_transaction(tx),
+        Transaction::Resolve(tx) => ctx.process_transaction(tx),
+        Transaction::Chargeback(tx) => ctx.process_transaction(tx),
+    }
 }
